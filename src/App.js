@@ -44,7 +44,7 @@ function App() {
     if ( wordOnCooldown !== text ){
       if ( scores > .9 && voiceCooldown === 0){
         speak({text: text})
-        setVoiceCooldown(text.length>4 ? text.length-2 : text.length)
+        setVoiceCooldown(text.length>3 ? text.length-3 : text.length)
         console.log('Va a existir un cooldown de ',text.length+2)
       }
     }else{

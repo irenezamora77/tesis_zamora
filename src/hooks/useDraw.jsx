@@ -22,20 +22,26 @@ export const useDraw = (webcamRef, canvasRef, shouldRecount, setShouldRecount) =
   const prevText = usePrevious(text)
   const [wordOnCooldown, setWordOnCooldown ] = useState('')
   const [scores,setScores] = useState()
+  const [detectionGraph, setDetectionGraph ] = useState()
+  
+  useInterval(()=>handleDetect(),500)
 
   const runCoco = async () => {
   // 1. Cargo el modelo desde Github
   const net = await tf.loadGraphModel('https://raw.githubusercontent.com/irenezamora77/tesis_zamora_model/main/model.json')
-    // Bucle de detaccion de manos
-    // setInterval(() => {
-    //   detect(net);
-    // }, 16.7);
-    detect(net)
-    setShouldRecount(false)
-    if ( text === prevText ){
-      setWordOnCooldown(text)
-    }
+    setDetectionGraph(net)
   };
+
+  const handleDetect = () => {
+    if (shouldRecount && detectionGraph ) {
+      detect(detectionGraph)
+    }else{
+      console.log('not showing because ',shouldRecount)
+    }
+    if ( !detectionGraph){
+      console.warn('Cuidado, no hay detectiongraph')
+    }
+  }
 
   // detect trabaja con los datos de la camara, dibujo y se utiliza dentro de runCoco
   const detect = async (net) => {
@@ -84,6 +90,10 @@ export const useDraw = (webcamRef, canvasRef, shouldRecount, setShouldRecount) =
       tf.dispose(casted)
       tf.dispose(expanded)
       tf.dispose(obj)
+      setShouldRecount(false)
+      if ( text === prevText ){
+        setWordOnCooldown(text)
+      }
     }
   };
 
@@ -131,13 +141,8 @@ export const useDraw = (webcamRef, canvasRef, shouldRecount, setShouldRecount) =
 // ya sea por un cambio de estado o por recibir props nuevas.
 
   useEffect(()=>{
-    if ( shouldRecount ){
-      runCoco()
-    }
-    else{
-      // setCurrentCount({repeat})
-    }
-  },[shouldRecount]);
+    runCoco()
+  },[]);
 
 
   return { text,scores, wordOnCooldown };
