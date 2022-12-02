@@ -3,7 +3,8 @@
 import * as tf from "@tensorflow/tfjs";
 import { useState } from "react";
 import { useEffect } from "react";
-
+import { useInterval } from './useInterval'
+import usePrevious from './usePrevious'
 const labelMap = {
   1:{name:'hola', color:'red'},
   2:{name:'gracias', color:'yellow'},
@@ -12,20 +13,31 @@ const labelMap = {
   5:{name:'chau', color:'purple'},
 };
 
-export const useDraw = (webcamRef, canvasRef) => {
+export const useDraw = (webcamRef, canvasRef, shouldRecount, setShouldRecount) => {
+  const [ currentCount, setCurrentCount ] = useState({fail:0, repeat:0, total: 0})
+  // El término asíncrono se refiere a una situación en la que dos o más eventos no ocurren al mismo tiempo. 
+  // O en términos más sencillos, pueden suceder varias cosas relacionadas sin esperar a que se complete la acción anterior.
 
-  // Funcion principal 
+  const [text,setText] = useState()
+  const prevText = usePrevious(text)
+  const [wordOnCooldown, setWordOnCooldown ] = useState('')
+  const [scores,setScores] = useState()
+
   const runCoco = async () => {
   // 1. Cargo el modelo desde Github
-  // https://raw.githubusercontent.com/irenezamora77/tesis_zamora_model_stage/main/model.json
   const net = await tf.loadGraphModel('https://raw.githubusercontent.com/irenezamora77/tesis_zamora_model/main/model.json')
-
     // Bucle de detaccion de manos
-    setInterval(() => {
-      detect(net);
-    }, 16.7);
+    // setInterval(() => {
+    //   detect(net);
+    // }, 16.7);
+    detect(net)
+    setShouldRecount(false)
+    if ( text === prevText ){
+      setWordOnCooldown(text)
+    }
   };
 
+  // detect trabaja con los datos de la camara, dibujo y se utiliza dentro de runCoco
   const detect = async (net) => {
     // Compruebo que los datos de la camara están disponibles
     if (
@@ -57,33 +69,37 @@ export const useDraw = (webcamRef, canvasRef) => {
       const classes = await obj[2].array()
       const scores = await obj[4].array()
       
-      // Draw mesh
+      // Draw mesh ????
       const ctx = canvasRef.current.getContext("2d");
 
       // Actualizo utilidad de dibujo
       // drawSomething(obj, ctx)  
       requestAnimationFrame(()=>{drawRect(boxes[0], classes[0], scores[0], 0.8, videoWidth, videoHeight, ctx)}); 
 
+      // requestAnimationFrame es una forma de poner una función en cola para ser ejecutada 
+      // por el navegador en un tiempo óptimo para el rendimiento del renderizado.
+
       tf.dispose(img)
       tf.dispose(resized)
       tf.dispose(casted)
       tf.dispose(expanded)
       tf.dispose(obj)
-
     }
   };
 
-  // Defino una función de dibujo
+  // Defino una función de dibujo, la ultizo dentro de const detect
   const drawRect = (boxes, classes, scores, threshold, imgWidth, imgHeight, ctx) => {
-    
     for (let i = 0; i <= boxes.length; i++) {
       
+
       if (boxes[i] && classes[i] && scores[i] > threshold) {
 
         // Extraigo variables
         const [y, x, height, width] = boxes[i];
         const text = classes[i];
         
+        
+
         // Establezco estilo
         ctx.strokeStyle = labelMap[text]["color"];
         ctx.lineWidth = 10;
@@ -104,7 +120,6 @@ export const useDraw = (webcamRef, canvasRef) => {
         );
         ctx.stroke();
 
-
         setText(labelMap[text]["name"])
         setScores( Math.round(scores[i] * 100) / 100)
         
@@ -112,11 +127,18 @@ export const useDraw = (webcamRef, canvasRef) => {
     }
   };
 
-  useEffect(()=>{runCoco()},[]);
+// un hook que recibe como parámetro una función que se ejecutará cada vez que nuestro componente se renderice, 
+// ya sea por un cambio de estado o por recibir props nuevas.
 
-  const [text,setText] = useState()
+  useEffect(()=>{
+    if ( shouldRecount ){
+      runCoco()
+    }
+    else{
+      // setCurrentCount({repeat})
+    }
+  },[shouldRecount]);
 
-  const [scores,setScores] = useState()
 
-  return { text,scores };
+  return { text,scores, wordOnCooldown };
 };
